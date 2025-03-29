@@ -6,13 +6,16 @@ using ProductApi.Repositories.Interfaces;
 
 namespace ProductApi.Repositories
 {
+
     public class ProductRepository : IProductRepository
     {
         private readonly ApplicationDbContext _context;
+        ILogger<ProductRepository> _logger;
 
-        public ProductRepository(ApplicationDbContext context)
+        public ProductRepository(ApplicationDbContext context, ILogger<ProductRepository> logger)
         {
             _context = context;
+            _logger = logger;
         }
         public async Task<Product> AddProductAsync(Product product)
         {
@@ -40,25 +43,41 @@ namespace ProductApi.Repositories
 
         public async Task<PagedResult<Product>> GetProductsPagedAsync(int pageNumber, int pageSize)
         {
-            pageNumber = pageNumber < 1 ? 1 : pageNumber;
-            pageSize = pageSize > 100 ? 100 : pageSize;
-            pageSize = pageSize < 1 ? 10 : pageSize;
-            var totalCount = await _context.Products.CountAsync();
-
-            var items = await _context.Products
-                .AsNoTracking()
-                .OrderBy(p => p.Id)
-                .Skip((pageNumber - 1) * pageSize)
-                .Take(pageSize)
-                .ToListAsync();
-
-            return new PagedResult<Product>
+            using (_logger.BeginScope("Getting paged products: Page {PageNumber}, Size {PageSize}", pageNumber, pageSize))
             {
-                Items = items,
-                PageNumber = pageNumber,
-                PageSize = pageSize,
-                TotalCount = totalCount
-            };
+                try
+                {
+                    pageNumber = pageNumber < 1 ? 1 : pageNumber;
+                    pageSize = pageSize > 100 ? 100 : pageSize;
+                    pageSize = pageSize < 1 ? 10 : pageSize;
+
+                    _logger.LogDebug("Querying database for product count");
+                    var totalCount = await _context.Products.CountAsync();
+
+                    _logger.LogDebug("Retrieving products for page {PageNumber}", pageNumber);
+                    var items = await _context.Products
+                        .AsNoTracking()
+                        .OrderBy(p => p.Id)
+                        .Skip((pageNumber - 1) * pageSize)
+                        .Take(pageSize)
+                        .ToListAsync();
+
+                    _logger.LogInformation("Retrieved {ItemCount} products from total {TotalCount}", items.Count, totalCount);
+
+                    return new PagedResult<Product>
+                    {
+                        Items = items,
+                        PageNumber = pageNumber,
+                        PageSize = pageSize,
+                        TotalCount = totalCount
+                    };
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error retrieving paged products");
+                    throw;
+                }
+            }
         }
         public async Task<Product> UpdateProductAsync(Product product)
         {
