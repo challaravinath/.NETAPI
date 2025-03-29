@@ -1,0 +1,7 @@
+2025-03-29 12:10:52.725 +05:30 [INF] Performance Metrics: Memory Usage: 102 MB, CPU Time: "00:00:02.9375000", Threads: 28
+2025-03-29 12:11:00.896 +05:30 [INF] HTTP GET /api/Products
+2025-03-29 12:11:01.165 +05:30 [INF] Processing request for products page 1
+2025-03-29 12:11:01.701 +05:30 [INF] Retrieved 6 products from total 6
+2025-03-29 12:11:01.708 +05:30 [INF] Successfully retrieved 6 products
+2025-03-29 12:11:01.758 +05:30 [INF] HTTP GET /api/Products responded 200 Response Body: {"data":[{"id":1,"name":"Laptop","price":999.99,"stockQuantity":50},{"id":2,"name":"Smartphone","price":699.99,"stockQuantity":100},{"id":3,"name":"Headphones","price":149.99,"stockQuantity":200},{"id":4,"name":"Tablet","price":399.99,"stockQuantity":75},{"id":5,"name":"Monitor","price":249.99,"stockQuantity":30},{"id":6,"name":"ProductA","price":10.00,"stockQuantity":0}],"pageNumber":1,"pageSize":10,"totalPages":1,"totalCount":6}
+2025-03-29 12:11:01.781 +05:30 [INF] HTTP GET /api/Products responded 200 in 907.0745 ms

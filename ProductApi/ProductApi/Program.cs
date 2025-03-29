@@ -3,8 +3,14 @@ using Microsoft.EntityFrameworkCore;
 using ProductApi.Data;
 using ProductApi.Repositories.Interfaces;
 using ProductApi.Repositories;
-using ProductApi.Data;
 using ProductApi.Middleware;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
+using ProductApi.Services;
+using Azure;
+using Microsoft.Extensions.Options;
+using Serilog;
+using Serilog.Events;
+using ProductApi.Logging;
 
 namespace ProductApi
 {
@@ -15,6 +21,16 @@ namespace ProductApi
             var builder = WebApplication.CreateBuilder(args);
 
             // Add services to the container.
+            Log.Logger = new LoggerConfiguration()
+                .MinimumLevel.Information()
+                .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
+                .Enrich.FromLogContext()
+                .WriteTo.Console()
+                .WriteTo.File(Path.Combine("logs", "log-.txt"), rollingInterval: RollingInterval.Day)
+                .CreateLogger();
+
+            builder.Host.UseSerilog(); // Tell ASP.NET Core to use Serilog
+
 
             builder.Services.AddControllers();
             // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
@@ -30,7 +46,10 @@ namespace ProductApi
 
             // Add response caching
             builder.Services.AddResponseCaching();
-
+            builder.Services.AddHealthChecks()
+                .AddDbContextCheck<ApplicationDbContext>("database")
+                .AddCheck("self", () => HealthCheckResult.Healthy());
+            builder.Services.AddHostedService<PerformanceMetricsService>();
             var app = builder.Build();
 
             // Seed database
@@ -51,10 +70,27 @@ namespace ProductApi
             app.UseHttpsRedirection();
 
             app.UseAuthorization();
-
-            //app.UseMiddleware<PaginationHeaderMiddleware>();
+            // app.UseSerilogRequestLogging();
+            // Enhanced version with custom properties
+            app.UseSerilogRequestLogging(options => {
+                options.EnrichDiagnosticContext = LogEnrichment.EnrichFromRequest;
+            });
+            app.UseMiddleware<PaginationHeaderMiddleware>();
             app.UsePaginationHeaders();
+            // Add exception handling first to catch all exceptions
+            app.UseCustomExceptionHandler();
+            // Map health checks endpoint
+            app.MapHealthChecks("/health");
+            app.UseRequestResponseLogging();
 
+
+            // Map health checks endpoint
+            app.MapHealthChecks("/health");
+
+            // Add detailed request/response logging (optional - can be verbose)
+            // app.UseRequestResponseLogging();
+
+            // Map health checks endpoint
             app.MapControllers();
 
             app.Run();

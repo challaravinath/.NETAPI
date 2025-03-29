@@ -5,6 +5,7 @@ using ProductApi.Repositories.Interfaces;
 
 using Microsoft.AspNetCore.Mvc;
 using ProductApi.Helpers;
+using ProductApi.Repositories;
 
 namespace ProductApi.Controllers
 {
@@ -13,9 +14,11 @@ namespace ProductApi.Controllers
     public class ProductsController : Controller
     {
         private readonly IProductRepository _repository;
-        public ProductsController(IProductRepository repository)
+        ILogger<ProductRepository> _logger;
+        public ProductsController(IProductRepository repository, ILogger<ProductRepository> logger)
         {
             _repository = repository;
+            _logger = logger;
         }
         // GET: api/products?page=2&pageSize=10
         //[HttpGet]
@@ -34,18 +37,32 @@ namespace ProductApi.Controllers
         public async Task<ActionResult<PagedResponse<Product>>> GetProducts( 
             [FromQuery] int page = 1,[FromQuery] int pageSize = 10)
         {
-            var pagedResult = await _repository.GetProductsPagedAsync(page, pageSize);
-
-            var response = new PagedResponse<Product>
+            using (_logger.BeginScope("API Request GET Products page {Page}, size {PageSize}", page, pageSize))
             {
-                Data = pagedResult.Items,
-                PageNumber = page,
-                PageSize = pageSize,
-                TotalCount = pagedResult.TotalCount,
-                TotalPages = pagedResult.TotalPages
-            };
+                try
+                {
+                    _logger.LogInformation("Processing request for products page {Page}", page);
 
-            return Ok(response); // ← middleware injects headers
+                    var pagedResult = await _repository.GetProductsPagedAsync(page, pageSize);
+                    var response = new PagedResponse<Product>
+                    {
+                        Data = pagedResult.Items,
+                        PageNumber = page,
+                        PageSize = pageSize,
+                        TotalCount = pagedResult.TotalCount,
+                        TotalPages = pagedResult.TotalPages
+                    };
+
+                    _logger.LogInformation("Successfully retrieved {Count} products", pagedResult.Items.Count);
+
+                    return Ok(response);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error processing GET Products request");
+                    throw; // Will be caught by the exception middleware
+                }
+            }
         }
 
 
